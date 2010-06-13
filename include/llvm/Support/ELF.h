@@ -88,6 +88,21 @@ struct Elf64_Ehdr {
   Elf64_Quarter e_shstrndx;
 };
 
+// ELF header e_ident offsets
+enum {
+  EI_MAG0       = 0, // File identification
+  EI_MAG1       = 1, // File identification
+  EI_MAG2       = 2, // File identification
+  EI_MAG3       = 3, // File identification
+  EI_CLASS      = 4, // File class
+  EI_DATA       = 5, // Data encoding
+  EI_VERSION    = 6, // File version
+  EI_OSABI      = 7, // Operating system/ABI identification
+  EI_ABIVERSION = 8, // ABI version
+  EI_PAD        = 9, // Starting of padding bytes
+  EI_NIDENT     = 16 // Size of e_ident[]
+};
+
 // File types
 enum {
   ET_NONE   = 0,      // No file type
@@ -193,6 +208,8 @@ enum {
   SHT_REL      = 9,  // Relocation entries; no explicit addends.
   SHT_SHLIB    = 10, // Reserved.
   SHT_DYNSYM   = 11, // Symbol table.
+  SHT_GROUP    = 17, // Section contains a section group.
+  SHT_SYMTAB_SHNDX = 18, // Indicies for SHN_XINDEX entries.
   SHT_LOPROC   = 0x70000000, // Lowest processor architecture-specific type.
   SHT_HIPROC   = 0x7fffffff, // Highest processor architecture-specific type.
   SHT_LOUSER   = 0x80000000, // Lowest type reserved for applications.
@@ -227,6 +244,12 @@ struct Elf32_Sym {
   }
 };
 
+// The size (in bytes) of symbol table entries.
+enum {
+  SYMENTRY_SIZE32 = 16, // 32-bit symbol entry size
+  SYMENTRY_SIZE64 = 24  // 64-bit symbol entry size.
+};
+
 // Symbol bindings.
 enum {
   STB_LOCAL = 0,   // Local symbol, not visible outside obj file containing def
@@ -243,8 +266,25 @@ enum {
   STT_FUNC    = 2,   // Symbol is executable code (function, etc.)
   STT_SECTION = 3,   // Symbol refers to a section
   STT_FILE    = 4,   // Local, absolute symbol that refers to a file
+  STT_COMMON  = 5,   // An uninitialised common block
+  STT_TLS     = 6,   // Thread local data object
   STT_LOPROC  = 13,  // Lowest processor-specific symbol type
   STT_HIPROC  = 15   // Highest processor-specific symbol type
+};
+
+enum {
+  STV_DEFAULT   = 0,  // Symbol's visibility is as spcecfied by the binding type
+  STV_INTERNAL  = 1,  // OS-specific version of STV_HIDDEN
+  STV_HIDDEN    = 2,  // Symbol is only visible inside the current component
+  STV_PROTECTED = 3   // Treat as STB_LOCAL inside current component
+};
+
+// Because all the symbol flags need to be stored in the MCSymbolData
+// 'flags' variable we need to provide shift constants per flag type.
+enum {
+  STT_SHIFT = 0, // Shift value for STT_* flags.
+  STB_SHIFT = 4, // Shift value for STB_* flags.
+  STV_SHIFT = 8  // Shift value ofr STV_* flags.
 };
 
 // Relocation entry, without explicit addend.

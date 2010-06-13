@@ -353,6 +353,12 @@ namespace llvm {
   /// The new streamer takes ownership of the \arg Child.
   MCStreamer *createLoggingStreamer(MCStreamer *Child, raw_ostream &OS);
 
+  /// createELFStreamer - Create a machine code streamer which will generate
+  /// ELF format object files.
+  MCStreamer *createELFStreamer(MCContext &Ctx, TargetAsmBackend &TAB,
+				raw_ostream &OS, MCCodeEmitter *CE,
+				bool RelaxAll = false);
+
 } // end namespace llvm
 
 #endif

@@ -92,7 +92,7 @@ public:
   virtual bool ParseInstruction(const StringRef &Name, SMLoc NameLoc,
                                 SmallVectorImpl<MCParsedAsmOperand*> &Operands);
 
-  bool ParseTargetDirective(AsmToken DirectiveID);
+  virtual bool ParseTargetDirective(AsmToken DirectiveID);
 };
   
 /// ARMOperand - Instances of this class represent a parsed ARM machine

@@ -46,6 +46,8 @@ static MCStreamer *createMCStreamer(const Target &T, const std::string &TT,
                                     bool RelaxAll) {
   Triple TheTriple(TT);
   switch (TheTriple.getOS()) {
+  case Triple::Linux:
+    return createELFStreamer(Ctx, TAB, _OS, _Emitter, RelaxAll);
   default:
     return createMachOStreamer(Ctx, TAB, _OS, _Emitter, RelaxAll);
   }
