@@ -105,9 +105,7 @@ bool AsmParser::Run(bool NoInitialTextSection, bool NoFinalize) {
   //
   // FIXME: Target hook & command line option for initial section.
   if (!NoInitialTextSection)
-    Out.SwitchSection(Ctx.getMachOSection("__TEXT", "__text",
-                                      MCSectionMachO::S_ATTR_PURE_INSTRUCTIONS,
-                                      0, SectionKind::getText()));
+    Out.SwitchSection(getInitialTextSection());
 
   // Prime the lexer.
   Lex();
@@ -530,158 +528,7 @@ bool AsmParser::ParseStatement() {
   
   // Otherwise, we have a normal instruction or directive.  
   if (IDVal[0] == '.') {
-    // FIXME: This should be driven based on a hash lookup and callback.
-    if (IDVal == ".section")
-      return ParseDirectiveDarwinSection();
-    if (IDVal == ".text")
-      // FIXME: This changes behavior based on the -static flag to the
-      // assembler.
-      return ParseDirectiveSectionSwitch("__TEXT", "__text",
-                                     MCSectionMachO::S_ATTR_PURE_INSTRUCTIONS);
-    if (IDVal == ".const")
-      return ParseDirectiveSectionSwitch("__TEXT", "__const");
-    if (IDVal == ".static_const")
-      return ParseDirectiveSectionSwitch("__TEXT", "__static_const");
-    if (IDVal == ".cstring")
-      return ParseDirectiveSectionSwitch("__TEXT","__cstring", 
-                                         MCSectionMachO::S_CSTRING_LITERALS);
-    if (IDVal == ".literal4")
-      return ParseDirectiveSectionSwitch("__TEXT", "__literal4",
-                                         MCSectionMachO::S_4BYTE_LITERALS,
-                                         4);
-    if (IDVal == ".literal8")
-      return ParseDirectiveSectionSwitch("__TEXT", "__literal8",
-                                         MCSectionMachO::S_8BYTE_LITERALS,
-                                         8);
-    if (IDVal == ".literal16")
-      return ParseDirectiveSectionSwitch("__TEXT","__literal16",
-                                         MCSectionMachO::S_16BYTE_LITERALS,
-                                         16);
-    if (IDVal == ".constructor")
-      return ParseDirectiveSectionSwitch("__TEXT","__constructor");
-    if (IDVal == ".destructor")
-      return ParseDirectiveSectionSwitch("__TEXT","__destructor");
-    if (IDVal == ".fvmlib_init0")
-      return ParseDirectiveSectionSwitch("__TEXT","__fvmlib_init0");
-    if (IDVal == ".fvmlib_init1")
-      return ParseDirectiveSectionSwitch("__TEXT","__fvmlib_init1");
 
-    // FIXME: The assembler manual claims that this has the self modify code
-    // flag, at least on x86-32, but that does not appear to be correct.
-    if (IDVal == ".symbol_stub")
-      return ParseDirectiveSectionSwitch("__TEXT","__symbol_stub",
-                                         MCSectionMachO::S_SYMBOL_STUBS |
-                                       MCSectionMachO::S_ATTR_PURE_INSTRUCTIONS,
-                                          // FIXME: Different on PPC and ARM.
-                                         0, 16);
-    // FIXME: PowerPC only?
-    if (IDVal == ".picsymbol_stub")
-      return ParseDirectiveSectionSwitch("__TEXT","__picsymbol_stub",
-                                         MCSectionMachO::S_SYMBOL_STUBS |
-                                       MCSectionMachO::S_ATTR_PURE_INSTRUCTIONS,
-                                         0, 26);
-    if (IDVal == ".data")
-      return ParseDirectiveSectionSwitch("__DATA", "__data");
-    if (IDVal == ".static_data")
-      return ParseDirectiveSectionSwitch("__DATA", "__static_data");
-
-    // FIXME: The section names of these two are misspelled in the assembler
-    // manual.
-    if (IDVal == ".non_lazy_symbol_pointer")
-      return ParseDirectiveSectionSwitch("__DATA", "__nl_symbol_ptr",
-                                     MCSectionMachO::S_NON_LAZY_SYMBOL_POINTERS,
-                                         4);
-    if (IDVal == ".lazy_symbol_pointer")
-      return ParseDirectiveSectionSwitch("__DATA", "__la_symbol_ptr",
-                                         MCSectionMachO::S_LAZY_SYMBOL_POINTERS,
-                                         4);
-
-    if (IDVal == ".dyld")
-      return ParseDirectiveSectionSwitch("__DATA", "__dyld");
-    if (IDVal == ".mod_init_func")
-      return ParseDirectiveSectionSwitch("__DATA", "__mod_init_func",
-                                       MCSectionMachO::S_MOD_INIT_FUNC_POINTERS,
-                                         4);
-    if (IDVal == ".mod_term_func")
-      return ParseDirectiveSectionSwitch("__DATA", "__mod_term_func",
-                                       MCSectionMachO::S_MOD_TERM_FUNC_POINTERS,
-                                         4);
-    if (IDVal == ".const_data")
-      return ParseDirectiveSectionSwitch("__DATA", "__const");
-    
-    
-    if (IDVal == ".objc_class")
-      return ParseDirectiveSectionSwitch("__OBJC", "__class", 
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP);
-    if (IDVal == ".objc_meta_class")
-      return ParseDirectiveSectionSwitch("__OBJC", "__meta_class",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP);
-    if (IDVal == ".objc_cat_cls_meth")
-      return ParseDirectiveSectionSwitch("__OBJC", "__cat_cls_meth",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP);
-    if (IDVal == ".objc_cat_inst_meth")
-      return ParseDirectiveSectionSwitch("__OBJC", "__cat_inst_meth",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP);
-    if (IDVal == ".objc_protocol")
-      return ParseDirectiveSectionSwitch("__OBJC", "__protocol",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP);
-    if (IDVal == ".objc_string_object")
-      return ParseDirectiveSectionSwitch("__OBJC", "__string_object",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP);
-    if (IDVal == ".objc_cls_meth")
-      return ParseDirectiveSectionSwitch("__OBJC", "__cls_meth",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP);
-    if (IDVal == ".objc_inst_meth")
-      return ParseDirectiveSectionSwitch("__OBJC", "__inst_meth",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP);
-    if (IDVal == ".objc_cls_refs")
-      return ParseDirectiveSectionSwitch("__OBJC", "__cls_refs",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP |
-                                         MCSectionMachO::S_LITERAL_POINTERS,
-                                         4);
-    if (IDVal == ".objc_message_refs")
-      return ParseDirectiveSectionSwitch("__OBJC", "__message_refs",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP |
-                                         MCSectionMachO::S_LITERAL_POINTERS,
-                                         4);
-    if (IDVal == ".objc_symbols")
-      return ParseDirectiveSectionSwitch("__OBJC", "__symbols",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP);
-    if (IDVal == ".objc_category")
-      return ParseDirectiveSectionSwitch("__OBJC", "__category",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP);
-    if (IDVal == ".objc_class_vars")
-      return ParseDirectiveSectionSwitch("__OBJC", "__class_vars",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP);
-    if (IDVal == ".objc_instance_vars")
-      return ParseDirectiveSectionSwitch("__OBJC", "__instance_vars",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP);
-    if (IDVal == ".objc_module_info")
-      return ParseDirectiveSectionSwitch("__OBJC", "__module_info",
-                                         MCSectionMachO::S_ATTR_NO_DEAD_STRIP);
-    if (IDVal == ".objc_class_names")
-      return ParseDirectiveSectionSwitch("__TEXT", "__cstring",
-                                         MCSectionMachO::S_CSTRING_LITERALS);
-    if (IDVal == ".objc_meth_var_types")
-      return ParseDirectiveSectionSwitch("__TEXT", "__cstring",
-                                         MCSectionMachO::S_CSTRING_LITERALS);
-    if (IDVal == ".objc_meth_var_names")
-      return ParseDirectiveSectionSwitch("__TEXT", "__cstring",
-                                         MCSectionMachO::S_CSTRING_LITERALS);
-    if (IDVal == ".objc_selector_strs")
-      return ParseDirectiveSectionSwitch("__OBJC", "__selector_strs",
-                                         MCSectionMachO::S_CSTRING_LITERALS);
-    
-    if (IDVal == ".tdata")
-      return ParseDirectiveSectionSwitch("__DATA", "__thread_data",
-                                        MCSectionMachO::S_THREAD_LOCAL_REGULAR);
-    if (IDVal == ".tlv")
-      return ParseDirectiveSectionSwitch("__DATA", "__thread_vars",
-                                      MCSectionMachO::S_THREAD_LOCAL_VARIABLES);
-    if (IDVal == ".thread_init_func")
-      return ParseDirectiveSectionSwitch("__DATA", "__thread_init",
-                        MCSectionMachO::S_THREAD_LOCAL_INIT_FUNCTION_POINTERS);
-    
     // Assembler features
     if (IDVal == ".set")
       return ParseDirectiveSet();
@@ -757,37 +604,22 @@ bool AsmParser::ParseStatement() {
     if (IDVal == ".weak_reference")
       return ParseDirectiveSymbolAttribute(MCSA_WeakReference);
 
-    if (IDVal == ".comm")
-      return ParseDirectiveComm(/*IsLocal=*/false);
-    if (IDVal == ".lcomm")
-      return ParseDirectiveComm(/*IsLocal=*/true);
-    if (IDVal == ".zerofill")
-      return ParseDirectiveDarwinZerofill();
-    if (IDVal == ".desc")
-      return ParseDirectiveDarwinSymbolDesc();
-    if (IDVal == ".lsym")
-      return ParseDirectiveDarwinLsym();
-    if (IDVal == ".tbss")
-      return ParseDirectiveDarwinTBSS();
-
-    if (IDVal == ".subsections_via_symbols")
-      return ParseDirectiveDarwinSubsectionsViaSymbols();
     if (IDVal == ".abort")
       return ParseDirectiveAbort();
     if (IDVal == ".include")
       return ParseDirectiveInclude();
-    if (IDVal == ".dump")
-      return ParseDirectiveDarwinDumpOrLoad(IDLoc, /*IsDump=*/true);
-    if (IDVal == ".load")
-      return ParseDirectiveDarwinDumpOrLoad(IDLoc, /*IsLoad=*/false);
+
+    // Architecture hook for parsing target specific directives.
+    if (!ParseDirective(ID))
+      return false;
 
     // Look up the handler in the handler table, 
     bool(AsmParser::*Handler)(StringRef, SMLoc) = DirectiveMap[IDVal];
     if (Handler)
       return (this->*Handler)(IDVal, IDLoc);
-    
+
     // Target hook for parsing target specific directives.
-    if (!getTargetParser().ParseDirective(ID))
+    if (!ParseTargetDirective(ID))
       return false;
 
     Warning(IDLoc, "ignoring directive for now");
@@ -801,15 +633,14 @@ bool AsmParser::ParseStatement() {
     Opcode.push_back(tolower(IDVal[i]));
   
   SmallVector<MCParsedAsmOperand*, 8> ParsedOperands;
-  bool HadError = getTargetParser().ParseInstruction(Opcode.str(), IDLoc,
-                                                     ParsedOperands);
+  bool HadError = ParseInstruction(Opcode.str(), IDLoc, ParsedOperands);
   if (!HadError && Lexer.isNot(AsmToken::EndOfStatement))
     HadError = TokError("unexpected token in argument list");
 
   // If parsing succeeded, match the instruction.
   if (!HadError) {
     MCInst Inst;
-    if (!getTargetParser().MatchInstruction(ParsedOperands, Inst)) {
+    if (!MatchInstruction(ParsedOperands, Inst)) {
       // Emit the instruction on success.
       Out.EmitInstruction(Inst);
     } else {
@@ -907,81 +738,6 @@ bool AsmParser::ParseDirectiveSet() {
   Lex();
 
   return ParseAssignment(Name);
-}
-
-/// ParseDirectiveSection:
-///   ::= .section identifier (',' identifier)*
-/// FIXME: This should actually parse out the segment, section, attributes and
-/// sizeof_stub fields.
-bool AsmParser::ParseDirectiveDarwinSection() {
-  SMLoc Loc = Lexer.getLoc();
-
-  StringRef SectionName;
-  if (ParseIdentifier(SectionName))
-    return Error(Loc, "expected identifier after '.section' directive");
-
-  // Verify there is a following comma.
-  if (!Lexer.is(AsmToken::Comma))
-    return TokError("unexpected token in '.section' directive");
-
-  std::string SectionSpec = SectionName;
-  SectionSpec += ",";
-
-  // Add all the tokens until the end of the line, ParseSectionSpecifier will
-  // handle this.
-  StringRef EOL = Lexer.LexUntilEndOfStatement();
-  SectionSpec.append(EOL.begin(), EOL.end());
-
-  Lex();
-  if (Lexer.isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in '.section' directive");
-  Lex();
-
-
-  StringRef Segment, Section;
-  unsigned TAA, StubSize;
-  std::string ErrorStr = 
-    MCSectionMachO::ParseSectionSpecifier(SectionSpec, Segment, Section,
-                                          TAA, StubSize);
-  
-  if (!ErrorStr.empty())
-    return Error(Loc, ErrorStr.c_str());
-  
-  // FIXME: Arch specific.
-  bool isText = Segment == "__TEXT";  // FIXME: Hack.
-  Out.SwitchSection(Ctx.getMachOSection(Segment, Section, TAA, StubSize,
-                                        isText ? SectionKind::getText()
-                                               : SectionKind::getDataRel()));
-  return false;
-}
-
-/// ParseDirectiveSectionSwitch - 
-bool AsmParser::ParseDirectiveSectionSwitch(const char *Segment,
-                                            const char *Section,
-                                            unsigned TAA, unsigned Align,
-                                            unsigned StubSize) {
-  if (Lexer.isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in section switching directive");
-  Lex();
-  
-  // FIXME: Arch specific.
-  bool isText = StringRef(Segment) == "__TEXT";  // FIXME: Hack.
-  Out.SwitchSection(Ctx.getMachOSection(Segment, Section, TAA, StubSize,
-                                        isText ? SectionKind::getText()
-                                               : SectionKind::getDataRel()));
-
-  // Set the implicit alignment, if any.
-  //
-  // FIXME: This isn't really what 'as' does; I think it just uses the implicit
-  // alignment on the section (e.g., if one manually inserts bytes into the
-  // section, then just issueing the section switch directive will not realign
-  // the section. However, this is arguably more reasonable behavior, and there
-  // is no good reason for someone to intentionally emit incorrectly sized
-  // values into the implicitly aligned sections.
-  if (Align)
-    Out.EmitValueToAlignment(Align, 0, 1, 0);
-
-  return false;
 }
 
 bool AsmParser::ParseEscapedString(std::string &Data) {
@@ -1368,261 +1124,6 @@ bool AsmParser::ParseDirectiveELFType() {
   return false;
 }
 
-/// ParseDirectiveDarwinSymbolDesc
-///  ::= .desc identifier , expression
-bool AsmParser::ParseDirectiveDarwinSymbolDesc() {
-  StringRef Name;
-  if (ParseIdentifier(Name))
-    return TokError("expected identifier in directive");
-  
-  // Handle the identifier as the key symbol.
-  MCSymbol *Sym = CreateSymbol(Name);
-
-  if (Lexer.isNot(AsmToken::Comma))
-    return TokError("unexpected token in '.desc' directive");
-  Lex();
-
-  SMLoc DescLoc = Lexer.getLoc();
-  int64_t DescValue;
-  if (ParseAbsoluteExpression(DescValue))
-    return true;
-
-  if (Lexer.isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in '.desc' directive");
-  
-  Lex();
-
-  // Set the n_desc field of this Symbol to this DescValue
-  Out.EmitSymbolDesc(Sym, DescValue);
-
-  return false;
-}
-
-/// ParseDirectiveComm
-///  ::= ( .comm | .lcomm ) identifier , size_expression [ , align_expression ]
-bool AsmParser::ParseDirectiveComm(bool IsLocal) {
-  SMLoc IDLoc = Lexer.getLoc();
-  StringRef Name;
-  if (ParseIdentifier(Name))
-    return TokError("expected identifier in directive");
-  
-  // Handle the identifier as the key symbol.
-  MCSymbol *Sym = CreateSymbol(Name);
-
-  if (Lexer.isNot(AsmToken::Comma))
-    return TokError("unexpected token in directive");
-  Lex();
-
-  int64_t Size;
-  SMLoc SizeLoc = Lexer.getLoc();
-  if (ParseAbsoluteExpression(Size))
-    return true;
-
-  int64_t Pow2Alignment = 0;
-  SMLoc Pow2AlignmentLoc;
-  if (Lexer.is(AsmToken::Comma)) {
-    Lex();
-    Pow2AlignmentLoc = Lexer.getLoc();
-    if (ParseAbsoluteExpression(Pow2Alignment))
-      return true;
-    
-    // If this target takes alignments in bytes (not log) validate and convert.
-    if (Lexer.getMAI().getAlignmentIsInBytes()) {
-      if (!isPowerOf2_64(Pow2Alignment))
-        return Error(Pow2AlignmentLoc, "alignment must be a power of 2");
-      Pow2Alignment = Log2_64(Pow2Alignment);
-    }
-  }
-  
-  if (Lexer.isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in '.comm' or '.lcomm' directive");
-  
-  Lex();
-
-  // NOTE: a size of zero for a .comm should create a undefined symbol
-  // but a size of .lcomm creates a bss symbol of size zero.
-  if (Size < 0)
-    return Error(SizeLoc, "invalid '.comm' or '.lcomm' directive size, can't "
-                 "be less than zero");
-
-  // NOTE: The alignment in the directive is a power of 2 value, the assembler
-  // may internally end up wanting an alignment in bytes.
-  // FIXME: Diagnose overflow.
-  if (Pow2Alignment < 0)
-    return Error(Pow2AlignmentLoc, "invalid '.comm' or '.lcomm' directive "
-                 "alignment, can't be less than zero");
-
-  if (!Sym->isUndefined())
-    return Error(IDLoc, "invalid symbol redefinition");
-
-  // '.lcomm' is equivalent to '.zerofill'.
-  // Create the Symbol as a common or local common with Size and Pow2Alignment
-  if (IsLocal) {
-    Out.EmitZerofill(Ctx.getMachOSection("__DATA", "__bss",
-                                         MCSectionMachO::S_ZEROFILL, 0,
-                                         SectionKind::getBSS()),
-                     Sym, Size, 1 << Pow2Alignment);
-    return false;
-  }
-
-  Out.EmitCommonSymbol(Sym, Size, 1 << Pow2Alignment);
-  return false;
-}
-
-/// ParseDirectiveDarwinZerofill
-///  ::= .zerofill segname , sectname [, identifier , size_expression [
-///      , align_expression ]]
-bool AsmParser::ParseDirectiveDarwinZerofill() {
-  StringRef Segment;
-  if (ParseIdentifier(Segment))
-    return TokError("expected segment name after '.zerofill' directive");
-
-  if (Lexer.isNot(AsmToken::Comma))
-    return TokError("unexpected token in directive");
-  Lex();
-
-  StringRef Section;
-  if (ParseIdentifier(Section))
-    return TokError("expected section name after comma in '.zerofill' "
-                    "directive");
-
-  // If this is the end of the line all that was wanted was to create the
-  // the section but with no symbol.
-  if (Lexer.is(AsmToken::EndOfStatement)) {
-    // Create the zerofill section but no symbol
-    Out.EmitZerofill(Ctx.getMachOSection(Segment, Section,
-                                         MCSectionMachO::S_ZEROFILL, 0,
-                                         SectionKind::getBSS()));
-    return false;
-  }
-
-  if (Lexer.isNot(AsmToken::Comma))
-    return TokError("unexpected token in directive");
-  Lex();
-
-  SMLoc IDLoc = Lexer.getLoc();
-  StringRef IDStr;
-  if (ParseIdentifier(IDStr))
-    return TokError("expected identifier in directive");
-  
-  // handle the identifier as the key symbol.
-  MCSymbol *Sym = CreateSymbol(IDStr);
-
-  if (Lexer.isNot(AsmToken::Comma))
-    return TokError("unexpected token in directive");
-  Lex();
-
-  int64_t Size;
-  SMLoc SizeLoc = Lexer.getLoc();
-  if (ParseAbsoluteExpression(Size))
-    return true;
-
-  int64_t Pow2Alignment = 0;
-  SMLoc Pow2AlignmentLoc;
-  if (Lexer.is(AsmToken::Comma)) {
-    Lex();
-    Pow2AlignmentLoc = Lexer.getLoc();
-    if (ParseAbsoluteExpression(Pow2Alignment))
-      return true;
-  }
-  
-  if (Lexer.isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in '.zerofill' directive");
-  
-  Lex();
-
-  if (Size < 0)
-    return Error(SizeLoc, "invalid '.zerofill' directive size, can't be less "
-                 "than zero");
-
-  // NOTE: The alignment in the directive is a power of 2 value, the assembler
-  // may internally end up wanting an alignment in bytes.
-  // FIXME: Diagnose overflow.
-  if (Pow2Alignment < 0)
-    return Error(Pow2AlignmentLoc, "invalid '.zerofill' directive alignment, "
-                 "can't be less than zero");
-
-  if (!Sym->isUndefined())
-    return Error(IDLoc, "invalid symbol redefinition");
-
-  // Create the zerofill Symbol with Size and Pow2Alignment
-  //
-  // FIXME: Arch specific.
-  Out.EmitZerofill(Ctx.getMachOSection(Segment, Section,
-                                       MCSectionMachO::S_ZEROFILL, 0,
-                                       SectionKind::getBSS()),
-                   Sym, Size, 1 << Pow2Alignment);
-
-  return false;
-}
-
-/// ParseDirectiveDarwinTBSS
-///  ::= .tbss identifier, size, align
-bool AsmParser::ParseDirectiveDarwinTBSS() {
-  SMLoc IDLoc = Lexer.getLoc();
-  StringRef Name;
-  if (ParseIdentifier(Name))
-    return TokError("expected identifier in directive");
-    
-  // Handle the identifier as the key symbol.
-  MCSymbol *Sym = CreateSymbol(Name);
-
-  if (Lexer.isNot(AsmToken::Comma))
-    return TokError("unexpected token in directive");
-  Lex();
-
-  int64_t Size;
-  SMLoc SizeLoc = Lexer.getLoc();
-  if (ParseAbsoluteExpression(Size))
-    return true;
-
-  int64_t Pow2Alignment = 0;
-  SMLoc Pow2AlignmentLoc;
-  if (Lexer.is(AsmToken::Comma)) {
-    Lex();
-    Pow2AlignmentLoc = Lexer.getLoc();
-    if (ParseAbsoluteExpression(Pow2Alignment))
-      return true;
-  }
-  
-  if (Lexer.isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in '.tbss' directive");
-  
-  Lex();
-
-  if (Size < 0)
-    return Error(SizeLoc, "invalid '.tbss' directive size, can't be less than"
-                 "zero");
-
-  // FIXME: Diagnose overflow.
-  if (Pow2Alignment < 0)
-    return Error(Pow2AlignmentLoc, "invalid '.tbss' alignment, can't be less"
-                 "than zero");
-
-  if (!Sym->isUndefined())
-    return Error(IDLoc, "invalid symbol redefinition");
-  
-  Out.EmitTBSSSymbol(Ctx.getMachOSection("__DATA", "__thread_bss",
-                                        MCSectionMachO::S_THREAD_LOCAL_ZEROFILL,
-                                        0, SectionKind::getThreadBSS()),
-                     Sym, Size, 1 << Pow2Alignment);
-  
-  return false;
-}
-
-/// ParseDirectiveDarwinSubsectionsViaSymbols
-///  ::= .subsections_via_symbols
-bool AsmParser::ParseDirectiveDarwinSubsectionsViaSymbols() {
-  if (Lexer.isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in '.subsections_via_symbols' directive");
-  
-  Lex();
-
-  Out.EmitAssemblerFlag(MCAF_SubsectionsViaSymbols);
-
-  return false;
-}
-
 /// ParseDirectiveAbort
 ///  ::= .abort [ "abort_string" ]
 bool AsmParser::ParseDirectiveAbort() {
@@ -1653,37 +1154,6 @@ bool AsmParser::ParseDirectiveAbort() {
   return false;
 }
 
-/// ParseDirectiveLsym
-///  ::= .lsym identifier , expression
-bool AsmParser::ParseDirectiveDarwinLsym() {
-  StringRef Name;
-  if (ParseIdentifier(Name))
-    return TokError("expected identifier in directive");
-  
-  // Handle the identifier as the key symbol.
-  MCSymbol *Sym = CreateSymbol(Name);
-
-  if (Lexer.isNot(AsmToken::Comma))
-    return TokError("unexpected token in '.lsym' directive");
-  Lex();
-
-  const MCExpr *Value;
-  SMLoc StartLoc = Lexer.getLoc();
-  if (ParseExpression(Value))
-    return true;
-
-  if (Lexer.isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in '.lsym' directive");
-  
-  Lex();
-
-  // We don't currently support this directive.
-  //
-  // FIXME: Diagnostic location!
-  (void) Sym;
-  return TokError("directive '.lsym' is unsupported");
-}
-
 /// ParseDirectiveInclude
 ///  ::= .include "filename"
 bool AsmParser::ParseDirectiveInclude() {
@@ -1708,29 +1178,6 @@ bool AsmParser::ParseDirectiveInclude() {
                  "error");
     return true;
   }
-
-  return false;
-}
-
-/// ParseDirectiveDarwinDumpOrLoad
-///  ::= ( .dump | .load ) "filename"
-bool AsmParser::ParseDirectiveDarwinDumpOrLoad(SMLoc IDLoc, bool IsDump) {
-  if (Lexer.isNot(AsmToken::String))
-    return TokError("expected string in '.dump' or '.load' directive");
-  
-  Lex();
-
-  if (Lexer.isNot(AsmToken::EndOfStatement))
-    return TokError("unexpected token in '.dump' or '.load' directive");
-  
-  Lex();
-
-  // FIXME: If/when .dump and .load are implemented they will be done in the
-  // the assembly parser and not have any need for an MCStreamer API.
-  if (IsDump)
-    Warning(IDLoc, "ignoring directive .dump for now");
-  else
-    Warning(IDLoc, "ignoring directive .load for now");
 
   return false;
 }

@@ -33,6 +33,7 @@
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/MemoryObject.h"
 #include "llvm/Support/SourceMgr.h"
+#include "llvm/System/Host.h"
 #include "llvm/Target/TargetAsmLexer.h"
 #include "llvm/Target/TargetAsmParser.h"
 #include "llvm/Target/TargetRegistry.h"
@@ -364,18 +365,19 @@ int EDDisassembler::parseInst(SmallVectorImpl<MCParsedAsmOperand*> &operands,
   sourceMgr.AddNewSourceBuffer(buf, SMLoc()); // ownership of buf handed over
   MCContext context(*AsmInfo);
   OwningPtr<MCStreamer> streamer(createNullStreamer(context));
-  AsmParser genericParser(sourceMgr, context, *streamer, *AsmInfo);
-  OwningPtr<TargetAsmParser> TargetParser(Tgt->createAsmParser(genericParser));
+  OwningPtr<AsmParser> genericParser(Tgt->createAsmParser(sys::getHostTriple(),
+                                                          sourceMgr, context,
+                                                          *streamer, *AsmInfo));
   
-  AsmToken OpcodeToken = genericParser.Lex();
-  AsmToken NextToken = genericParser.Lex();  // consume next token, because specificParser expects us to
+  AsmToken OpcodeToken = genericParser->Lex();
+  AsmToken NextToken = genericParser->Lex();  // consume next token, because specificParser expects us to
     
   if (OpcodeToken.is(AsmToken::Identifier)) {
     instName = OpcodeToken.getString();
     instLoc = OpcodeToken.getLoc();
     
     if (NextToken.isNot(AsmToken::Eof) &&
-        TargetParser->ParseInstruction(instName, instLoc, operands))
+        genericParser->ParseInstruction(instName, instLoc, operands))
       ret = -1;
   } else {
     ret = -1;

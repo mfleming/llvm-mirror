@@ -24,6 +24,7 @@
 #include <cassert>
 
 namespace llvm {
+  class AsmParser;
   class AsmPrinter;
   class Module;
   class MCAssembler;
@@ -34,9 +35,9 @@ namespace llvm {
   class MCDisassembler;
   class MCInstPrinter;
   class MCStreamer;
+  class SourceMgr;
   class TargetAsmBackend;
   class TargetAsmLexer;
-  class TargetAsmParser;
   class TargetMachine;
   class raw_ostream;
 
@@ -65,7 +66,11 @@ namespace llvm {
                                                   const std::string &TT);
     typedef TargetAsmLexer *(*AsmLexerCtorTy)(const Target &T,
                                               const MCAsmInfo &MAI);
-    typedef TargetAsmParser *(*AsmParserCtorTy)(const Target &T,MCAsmParser &P);
+    typedef AsmParser *(*AsmParserCtorTy)(const Target &T,
+                                          const std::string &Triple,
+                                          SourceMgr &SM,
+                                          MCContext &Ctx, MCStreamer &Out,
+                                          const MCAsmInfo &MAI);
     typedef MCDisassembler *(*MCDisassemblerCtorTy)(const Target &T);
     typedef MCInstPrinter *(*MCInstPrinterCtorTy)(const Target &T,
                                                   unsigned SyntaxVariant,
@@ -235,12 +240,15 @@ namespace llvm {
 
     /// createAsmParser - Create a target specific assembly parser.
     ///
+    /// \arg Triple - The target triple string.
     /// \arg Parser - The target independent parser implementation to use for
     /// parsing and lexing.
-    TargetAsmParser *createAsmParser(MCAsmParser &Parser) const {
+    AsmParser *createAsmParser(const std::string &Triple, SourceMgr &SM,
+                               MCContext &Ctx, MCStreamer &Out,
+                               const MCAsmInfo &MAI) const {
       if (!AsmParserCtorFn)
         return 0;
-      return AsmParserCtorFn(*this, Parser);
+      return AsmParserCtorFn(*this, Triple, SM, Ctx, Out, MAI);
     }
 
     /// createAsmPrinter - Create a target specific assembly printer pass.  This
@@ -667,8 +675,10 @@ namespace llvm {
     }
 
   private:
-    static TargetAsmParser *Allocator(const Target &T, MCAsmParser &P) {
-      return new AsmParserImpl(T, P);
+    static AsmParser *Allocator(const Target &T, const std::string &Truple,
+                                SourceMgr &S, MCContext &C,
+                                MCStreamer &O, const MCAsmInfo &M) {
+      return new AsmParserImpl(T, S, C, O, M);
     }
   };
 

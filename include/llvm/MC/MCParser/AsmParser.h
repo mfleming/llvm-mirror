@@ -17,6 +17,7 @@
 #include "llvm/MC/MCParser/AsmLexer.h"
 #include "llvm/MC/MCParser/AsmCond.h"
 #include "llvm/MC/MCParser/MCAsmParser.h"
+#include "llvm/MC/MCParser/MCParsedAsmOperand.h"
 #include "llvm/MC/MCSectionMachO.h"
 #include "llvm/MC/MCStreamer.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -36,10 +37,11 @@ class TargetAsmParser;
 class Twine;
 
 class AsmParser : public MCAsmParser {
-private:
+protected:
   AsmLexer Lexer;
   MCContext &Ctx;
   MCStreamer &Out;
+private:
   SourceMgr &SrcMgr;
   TargetAsmParser *TargetParser;
   
@@ -88,14 +90,23 @@ public:
   virtual bool ParseParenExpression(const MCExpr *&Res, SMLoc &EndLoc);
   virtual bool ParseAbsoluteExpression(int64_t &Res);
 
+  virtual bool ParseInstruction(const StringRef &Name, SMLoc NameLoc,
+                                SmallVectorImpl<MCParsedAsmOperand*> &Operands) = 0;
+  virtual const MCSection *getInitialTextSection() = 0;
   /// }
 
-private:
-  MCSymbol *CreateSymbol(StringRef Name);
-
-  bool ParseStatement();
+protected:
 
   bool TokError(const char *Msg);
+
+  /// ParseIdentifier - Parse an identifier or string (as a quoted identifier)
+  /// and set \arg Res to the identifier contents.
+  bool ParseIdentifier(StringRef &Res);
+
+  MCSymbol *CreateSymbol(StringRef Name);
+
+private:
+  bool ParseStatement();
   
   void PrintMessage(SMLoc Loc, const std::string &Msg, const char *Type) const;
     
@@ -110,15 +121,7 @@ private:
   bool ParseBinOpRHS(unsigned Precedence, const MCExpr *&Res, SMLoc &EndLoc);
   bool ParseParenExpr(const MCExpr *&Res, SMLoc &EndLoc);
 
-  /// ParseIdentifier - Parse an identifier or string (as a quoted identifier)
-  /// and set \arg Res to the identifier contents.
-  bool ParseIdentifier(StringRef &Res);
-  
   // Directive Parsing.
-  bool ParseDirectiveDarwinSection(); // Darwin specific ".section".
-  bool ParseDirectiveSectionSwitch(const char *Segment, const char *Section,
-                                   unsigned TAA = 0, unsigned ImplicitAlign = 0,
-                                   unsigned StubSize = 0);
   bool ParseDirectiveAscii(bool ZeroTerminated); // ".ascii", ".asciiz"
   bool ParseDirectiveValue(unsigned Size); // ".byte", ".long", ...
   bool ParseDirectiveFill(); // ".fill"
@@ -132,17 +135,6 @@ private:
   /// accepts a single symbol (which should be a label or an external).
   bool ParseDirectiveSymbolAttribute(MCSymbolAttr Attr);
   bool ParseDirectiveELFType(); // ELF specific ".type"
-  bool ParseDirectiveDarwinSymbolDesc(); // Darwin specific ".desc"
-  bool ParseDirectiveDarwinLsym(); // Darwin specific ".lsym"
-
-  bool ParseDirectiveComm(bool IsLocal); // ".comm" and ".lcomm"
-  bool ParseDirectiveDarwinZerofill(); // Darwin specific ".zerofill"
-  bool ParseDirectiveDarwinTBSS(); // Darwin specific ".tbss"
-
-  // Darwin specific ".subsections_via_symbols"
-  bool ParseDirectiveDarwinSubsectionsViaSymbols();
-  // Darwin specific .dump and .load
-  bool ParseDirectiveDarwinDumpOrLoad(SMLoc IDLoc, bool IsDump);
 
   bool ParseDirectiveAbort(); // ".abort"
   bool ParseDirectiveInclude(); // ".include"
@@ -159,6 +151,19 @@ private:
   /// ParseEscapedString - Parse the current token as a string which may include
   /// escaped characters and return the string contents.
   bool ParseEscapedString(std::string &Data);
+
+
+  virtual bool ParseDirective(AsmToken DirectiveID) {
+    assert(0 && "ParseDirective must be implemented by a subclass");
+  };
+
+  // ParseTargetDirective - Parse a target-specific assembler directive.
+  virtual bool ParseTargetDirective(AsmToken DirectiveID) {
+    assert(0 && "ParseTargetDirective must be implemented in a subclass");
+  };
+
+  virtual bool MatchInstruction(const SmallVectorImpl<MCParsedAsmOperand*> &Operands,
+                                MCInst &Inst) = 0;
 };
 
 } // end namespace llvm

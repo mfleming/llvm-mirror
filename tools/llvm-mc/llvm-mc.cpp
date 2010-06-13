@@ -312,17 +312,15 @@ static int AssembleInput(const char *ProgName) {
     Str.reset(createLoggingStreamer(Str.take(), errs()));
   }
 
-  AsmParser Parser(SrcMgr, Ctx, *Str.get(), *MAI);
-  OwningPtr<TargetAsmParser> TAP(TheTarget->createAsmParser(Parser));
-  if (!TAP) {
+  OwningPtr<AsmParser> Parser(TheTarget->createAsmParser(TripleName, SrcMgr, Ctx,
+                                                         *Str.get(), *MAI));
+  if (!Parser) {
     errs() << ProgName 
            << ": error: this target does not support assembly parsing.\n";
     return 1;
   }
 
-  Parser.setTargetParser(*TAP.get());
-
-  int Res = Parser.Run(NoInitialTextSection);
+  int Res = Parser->Run(NoInitialTextSection);
   delete Out;
 
   // Delete output on errors.
