@@ -366,6 +366,11 @@ private:
   /// Alignment - The maximum alignment seen in this section.
   unsigned Alignment;
 
+  /// EntrySize - The size of each entry in this section. This is ~0
+  /// until initialized. This size only makes sense for sections that
+  /// contain fixed-sized entries.
+  unsigned EntrySize;
+
   /// @name Assembler Backend Data
   /// @{
   //
@@ -390,6 +395,9 @@ public:
 
   unsigned getAlignment() const { return Alignment; }
   void setAlignment(unsigned Value) { Alignment = Value; }
+
+  unsigned getEntrySize() const { return EntrySize; }
+  void setEntrySize(unsigned Value) { EntrySize = Value; }
 
   bool hasInstructions() const { return HasInstructions; }
   void setHasInstructions(bool Value) { HasInstructions = Value; }

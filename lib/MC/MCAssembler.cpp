@@ -192,6 +192,7 @@ MCSectionData::MCSectionData() : Section(0) {}
 MCSectionData::MCSectionData(const MCSection &_Section, MCAssembler *A)
   : Section(&_Section),
     Alignment(1),
+    EntrySize(~UINT64_C(0)),
     Address(~UINT64_C(0)),
     HasInstructions(false)
 {
