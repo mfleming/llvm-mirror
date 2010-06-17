@@ -15,7 +15,7 @@
 #include <cassert>
 
 namespace llvm {
-class MCFixup;
+class MCAsmFixup;
 class MCAssembler;
 class MCFragment;
 class MCValue;
@@ -31,6 +31,7 @@ public:
   virtual ~ELFObjectWriter();
 
   virtual void ExecutePostLayoutBinding(MCAssembler &Asm);
+  virtual void ExecutePreLayoutBinding(MCAssembler &Asm, MCAsmLayout &Layout);
 
   virtual void RecordRelocation(const MCAssembler &Asm,
                                 const MCAsmLayout &Layout,

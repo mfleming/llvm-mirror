@@ -338,6 +338,8 @@ public:
 
       if (Symbol.isUndefined()) {
         MSD.SectionIndex = ELF::SHN_UNDEF;
+	// XXX: for some reason we dont Emit* this
+	it->setFlags(it->getFlags() | (ELF::STB_GLOBAL << ELF::STB_SHIFT));
         UndefinedSymbolData.push_back(MSD);
       } else if (Symbol.isAbsolute()) {
         MSD.SectionIndex = ELF::SHN_ABS;
@@ -591,6 +593,10 @@ ELFObjectWriter::ELFObjectWriter(raw_ostream &OS,
 
 ELFObjectWriter::~ELFObjectWriter() {
   delete (ELFObjectWriterImpl*) Impl;
+}
+
+void ELFObjectWriter::ExecutePreLayoutBinding(MCAssembler &Asm, MCAsmLayout &Layout) {
+  ((ELFObjectWriterImpl*) Impl)->ExecutePreLayoutBinding(Asm, Layout);
 }
 
 void ELFObjectWriter::ExecutePostLayoutBinding(MCAssembler &Asm) {
