@@ -138,7 +138,10 @@ public:
     Write8(Writer->isLittleEndian() ? ELF::ELFDATA2LSB : ELF::ELFDATA2MSB);
 
     Write8(ELF::EV_CURRENT);        // e_ident[EI_VERSION]
-    WriteZeros(ELF::EI_PAD);
+    Write8(ELF::ELFOSABI_LINUX);    // e_ident[EI_OSABI]
+    Write8(0);			// e_ident[EI_ABIVERSION]
+
+    WriteZeros(ELF::EI_NIDENT - ELF::EI_PAD);
 
     Write16(ELF::ET_REL);             // e_type
 
