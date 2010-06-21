@@ -288,7 +288,7 @@ public:
       const MCSymbol &Symbol = it->getSymbol();
 
       // Ignore non-linker visible symbols.
-      if (!Asm.isSymbolLinkerVisible(it))
+      if (!Asm.isSymbolLinkerVisible(Symbol))
         continue;
 
       if (it->isExternal() || Symbol.isUndefined())
@@ -321,7 +321,7 @@ public:
       const MCSymbol &Symbol = it->getSymbol();
 
       // Ignore non-linker visible symbols.
-      if (!Asm.isSymbolLinkerVisible(it))
+      if (!Asm.isSymbolLinkerVisible(Symbol))
         continue;
 
       if (!it->isExternal() && !Symbol.isUndefined())
