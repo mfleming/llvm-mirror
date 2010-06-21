@@ -386,11 +386,7 @@ public:
 
     // Symbol table
     WriteSymbolTable(F, Asm, Layout);
-    // Layout.setFragmentOffset(F, 0);
-    // Layout.setFragmentEffectiveSize(F, F->getContents().size());
-    // Layout.setSectionAddress(&SymtabSD, 0);
-    // Layout.setSectionSize(&SymtabSD, F->getContents().size());
-    // Layout.setSectionFileSize(&SymtabSD, F->getContents().size());
+    Asm.AddSectionToTheEnd(SymtabSD, Layout);
 
     const MCSection *StrtabSection;
     StrtabSection = Ctx.getELFSection(".strtab", ELF::SHT_STRTAB, 0,
@@ -405,11 +401,7 @@ public:
 
     F = new MCDataFragment(&StrtabSD);
     F->getContents().append(StringTable.begin(), StringTable.end());
-    // Layout.setFragmentOffset(F, 0);
-    // Layout.setFragmentEffectiveSize(F, F->getContents().size());
-    // Layout.setSectionAddress(&StrtabSD, 0);
-    // Layout.setSectionSize(&StrtabSD, F->getContents().size());
-    // Layout.setSectionFileSize(&StrtabSD, F->getContents().size());
+    Asm.AddSectionToTheEnd(StrtabSD, Layout);
 
     const MCSection *ShstrtabSection;
     ShstrtabSection = Ctx.getELFSection(".shstrtab", ELF::SHT_STRTAB, 0,
@@ -447,16 +439,10 @@ public:
       F->getContents() += '\x00';
     }
 
-    // Layout.setFragmentOffset(F, 0);
-    // Layout.setFragmentEffectiveSize(F, F->getContents().size());
-    // Layout.setSectionAddress(&ShstrtabSD, 0);
-    // Layout.setSectionSize(&ShstrtabSD, F->getContents().size());
-    // Layout.setSectionFileSize(&ShstrtabSD, F->getContents().size());
+    Asm.AddSectionToTheEnd(ShstrtabSD, Layout);
   }
 
   void ExecutePostLayoutBinding(MCAssembler &Asm) {
-    // Compute symbol table information.
-    ComputeSymbolTable(Asm);
   }
 
   void WriteSecHdrEntry(uint32_t Name, uint32_t Type, uint64_t Flags,
@@ -476,7 +462,9 @@ public:
   }
 
   void WriteObject(const MCAssembler &Asm, const MCAsmLayout &Layout) {
-    // We create the .shstrtab, .symtab and .strtab sectons.
+    // Compute symbol table information.
+    ComputeSymbolTable(const_cast<MCAssembler&>(Asm));
+
     CreateMetadataSections(const_cast<MCAssembler&>(Asm),
                            const_cast<MCAsmLayout&>(Layout));
 

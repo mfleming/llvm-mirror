@@ -648,6 +648,40 @@ void MCAssembler::WriteSectionData(const MCSectionData *SD,
   assert(OW->getStream().tell() - Start == Layout.getSectionFileSize(SD));
 }
 
+void MCAssembler::AddSectionToTheEnd(MCSectionData &SD, MCAsmLayout &Layout) {
+  // Create dummy fragments and assign section ordinals.
+  unsigned SectionIndex = 0;
+  for (MCAssembler::iterator it = begin(), ie = end(); it != ie; ++it)
+    SectionIndex++;
+
+  SD.setOrdinal(SectionIndex);
+
+  // Assign layout order indices to sections and fragments.
+  unsigned FragmentIndex = 0;
+  unsigned i = 0;
+  for (unsigned e = Layout.getSectionOrder().size(); i != e; ++i) {
+    MCSectionData *SD = Layout.getSectionOrder()[i];
+
+    for (MCSectionData::iterator it2 = SD->begin(),
+           ie2 = SD->end(); it2 != ie2; ++it2)
+      FragmentIndex++;
+  }
+
+  SD.setLayoutOrder(i);
+  for (MCSectionData::iterator it2 = SD.begin(),
+         ie2 = SD.end(); it2 != ie2; ++it2) {
+    it2->setLayoutOrder(FragmentIndex++);
+  }
+  Layout.addSection(&SD);
+
+  Layout.LayoutSection(&SD);
+
+  // Layout until everything fits.
+  while (LayoutOnce(Layout))
+    continue;
+
+}
+
 void MCAssembler::Finish() {
   DEBUG_WITH_TYPE("mc-dump", {
       llvm::errs() << "assembler backend - pre-layout\n--\n";
@@ -714,17 +748,17 @@ void MCAssembler::Finish() {
       llvm::errs() << "assembler backend - post-relaxation\n--\n";
       dump(); });
 
+  uint64_t StartOffset = OS.tell();
+  llvm::OwningPtr<MCObjectWriter> Writer(getBackend().createObjectWriter(OS));
+  if (!Writer)
+    report_fatal_error("unable to create object writer!");
+
   // Finalize the layout, including fragment lowering.
   FinishLayout(Layout);
 
   DEBUG_WITH_TYPE("mc-dump", {
       llvm::errs() << "assembler backend - final-layout\n--\n";
       dump(); });
-
-  uint64_t StartOffset = OS.tell();
-  llvm::OwningPtr<MCObjectWriter> Writer(getBackend().createObjectWriter(OS));
-  if (!Writer)
-    report_fatal_error("unable to create object writer!");
 
   // Allow the object writer a chance to perform post-layout binding (for
   // example, to set the index fields in the symbol data).

@@ -85,6 +85,10 @@ public:
     return SectionOrder;
   }
 
+  void addSection(MCSectionData *SD) {
+    SectionOrder.push_back(SD);
+  }
+
   /// @}
   /// @name Fragment Layout Data
   /// @{
