@@ -253,9 +253,7 @@ public:
     for (unsigned i = 0, e = UndefinedSymbolData.size(); i != e; ++i) {
       ELFSymbolData &MSD = UndefinedSymbolData[i];
       MCSymbolData &Data = *MSD.SymbolData;
-      dbgs() << Data.getSymbol().getName();
-      assert((Data.getFlags() & (ELF::STB_GLOBAL << ELF::STB_SHIFT)) &&
-	      "Undefined symbol requires STB_GLOBAL flag");
+      Data.setFlags(Data.getFlags() | (ELF::STB_GLOBAL << ELF::STB_SHIFT));
       WriteSymbol(F, MSD, Layout);
     }
   }
