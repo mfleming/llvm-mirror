@@ -116,7 +116,24 @@ public:
     assert(0 && "ELF doesn't support this directive");
   }
 
-  virtual void EmitELFSize(MCSymbol *Symbol, const MCExpr *Value);
+  virtual void EmitELFSize(MCSymbol *Symbol, const MCExpr *Value) {
+     MCSymbolData &SD = Assembler.getOrCreateSymbolData(*Symbol);
+     uint64_t Size = 0;
+     const MCBinaryExpr *BE;
+
+     if (Value->getKind() == MCExpr::Constant) {
+       const MCConstantExpr *CE;
+       CE = static_cast<const MCConstantExpr *>(Value);
+       Size = CE->getValue();
+     } else if (Value->getKind() == MCExpr::Binary) {
+       BE = static_cast<const MCBinaryExpr *>(Value);
+     }
+
+     if (Size)
+       SD.setCommon(Size, Size);
+     if (BE)
+       SD.setSizeSymbol(BE);
+  }
 
   virtual void EmitLocalCommonSymbol(MCSymbol *Symbol, uint64_t Size) {
     assert(0 && "ELF doesn't support this directive");

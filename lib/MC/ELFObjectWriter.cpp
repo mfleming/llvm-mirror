@@ -204,8 +204,17 @@ public:
     // Compute the symbol address.
     if (Symbol.isDefined() && !Symbol.isAbsolute()) {
       Value = Layout.getSymbolAddress(&Data);
-      // FIXME: We need to figure out the correct value.
-      Size = 0;
+      MCValue Res;
+      if (Data.getSizeSymbol()->EvaluateAsRelocatable(Res, &Layout)) {
+        const MCBinaryExpr *SizeSymbol = Data.getSizeSymbol();
+        MCSymbolData &A =
+            Layout.getAssembler().getSymbolData(Res.getSymA()->getSymbol());
+        MCSymbolData &B =
+            Layout.getAssembler().getSymbolData(Res.getSymB()->getSymbol());
+
+	Size = Layout.getSymbolAddress(&A) - Layout.getSymbolAddress(&B);
+      }
+
     } else if (Data.isCommon()) {
       // The symbol value is the alignment of the object.
       Value = Data.getCommonAlignment();

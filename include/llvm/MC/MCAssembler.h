@@ -24,6 +24,7 @@ namespace llvm {
 class raw_ostream;
 class MCAsmLayout;
 class MCAssembler;
+class MCBinaryExpr;
 class MCContext;
 class MCCodeEmitter;
 class MCExpr;
@@ -460,6 +461,8 @@ public:
   // common symbol can never get a definition.
   uint64_t CommonSize;
 
+  const MCBinaryExpr *SizeSymbol;
+
   /// CommonAlign - The alignment of the symbol, if it is 'common'.
   //
   // FIXME: Pack this in with other fields?
@@ -516,6 +519,15 @@ public:
     assert(isCommon() && "Not a 'common' symbol!");
     return CommonSize;
   }
+
+  void setSizeSymbol(const MCBinaryExpr *SS) {
+    SizeSymbol = SS;
+  }
+
+  const MCBinaryExpr *getSizeSymbol() {
+    return SizeSymbol;
+  }
+
 
   /// getCommonAlignment - Return the alignment of a 'common' symbol.
   unsigned getCommonAlignment() const {
