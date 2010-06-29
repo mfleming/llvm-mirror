@@ -119,7 +119,7 @@ public:
   virtual void EmitELFSize(MCSymbol *Symbol, const MCExpr *Value) {
      MCSymbolData &SD = Assembler.getOrCreateSymbolData(*Symbol);
      uint64_t Size = 0;
-     const MCBinaryExpr *BE;
+     const MCBinaryExpr *BE = NULL;
 
      if (Value->getKind() == MCExpr::Constant) {
        const MCConstantExpr *CE;
@@ -341,10 +341,6 @@ void MCELFStreamer::EmitZerofill(const MCSection *Section, MCSymbol *Symbol,
 void MCELFStreamer::EmitTBSSSymbol(const MCSection *Section, MCSymbol *Symbol,
                                    uint64_t Size, unsigned ByteAlignment) {
   EmitZerofill(Section, Symbol, Size, ByteAlignment);
-}
-
-void MCELFStreamer::EmitELFSize(MCSymbol *Symbol, const MCExpr *Value) {
-  
 }
 
 void MCELFStreamer::EmitBytes(StringRef Data, unsigned AddrSpace) {
