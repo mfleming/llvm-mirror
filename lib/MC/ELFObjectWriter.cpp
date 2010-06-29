@@ -459,6 +459,10 @@ public:
 			uint64_t Address, uint64_t Offset,
 			uint64_t Size, uint32_t Link, uint32_t Info,
 			uint64_t Alignment, uint64_t EntrySize) {
+    // Suppose that all non-initialized EntrySizes are actually a zero
+    if (EntrySize == ~0U)
+      EntrySize = 0;
+
     Write32(Name);        // sh_name: index into string table
     Write32(Type);        // sh_type
     WriteWord(Flags);     // sh_flags
