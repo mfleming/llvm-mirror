@@ -206,7 +206,6 @@ public:
       Value = Layout.getSymbolAddress(&Data);
       MCValue Res;
       if (Data.getSizeSymbol()->EvaluateAsRelocatable(Res, &Layout)) {
-        const MCBinaryExpr *SizeSymbol = Data.getSizeSymbol();
         MCSymbolData &A =
             Layout.getAssembler().getSymbolData(Res.getSymA()->getSymbol());
         MCSymbolData &B =
@@ -250,6 +249,7 @@ public:
     // Write out a symbol table entry for each section.
     for (unsigned Index = 1; Index < Asm.size(); ++Index)
       WriteSymbolEntry(F, 0, ELF::STT_SECTION, 0, 0, ELF::STV_DEFAULT, Index);
+    LastLocalSymbolIndex += Asm.size() - 1;
 
     for (unsigned i = 0, e = ExternalSymbolData.size(); i != e; ++i) {
       ELFSymbolData &MSD = ExternalSymbolData[i];
@@ -258,6 +258,7 @@ public:
 	     "External symbol requires STB_GLOBAL flag");
       WriteSymbol(F, MSD, Layout);
     }
+    LastLocalSymbolIndex += ExternalSymbolData.size();
 
     for (unsigned i = 0, e = UndefinedSymbolData.size(); i != e; ++i) {
       ELFSymbolData &MSD = UndefinedSymbolData[i];
