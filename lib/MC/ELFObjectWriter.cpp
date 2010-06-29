@@ -202,7 +202,11 @@ public:
     uint32_t Size = 0;
 
     // Compute the symbol address.
-    if (Symbol.isDefined() && !Symbol.isAbsolute()) {
+    if (Data.isCommon()) {
+      // The symbol value is the alignment of the object.
+      Value = Data.getCommonAlignment();
+      Size = Data.getCommonSize();
+    } else if (Symbol.isDefined() && !Symbol.isAbsolute()) {
       Value = Layout.getSymbolAddress(&Data);
       MCValue Res;
       if (Data.getSizeSymbol()->EvaluateAsRelocatable(Res, &Layout)) {
@@ -214,10 +218,6 @@ public:
 	Size = Layout.getSymbolAddress(&A) - Layout.getSymbolAddress(&B);
       }
 
-    } else if (Data.isCommon()) {
-      // The symbol value is the alignment of the object.
-      Value = Data.getCommonAlignment();
-      Size = Data.getCommonSize();
     }
 
     // Write out the symbol table entry
