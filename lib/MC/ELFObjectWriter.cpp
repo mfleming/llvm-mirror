@@ -268,10 +268,121 @@ public:
     }
   }
 
+  // XXX: this is currently X86_64 only
   void RecordRelocation(const MCAssembler &Asm, const MCAsmLayout &Layout,
                         const MCFragment *Fragment, const MCFixup &Fixup,
                         MCValue Target, uint64_t &FixedValue) {
+     ELFRelocationEntry ERE;
+     struct ELF::Elf64_Rela ERE64;
+
+     uint64_t FixupOffset =
+	      Layout.getFragmentOffset(Fragment) + Fixup.getOffset();
+     int64_t Value;
+     int64_t Addend = 0;
+     unsigned Index = 0;
+     unsigned Type = ELF::R_X86_64_32;
+
+     Value = Target.getConstant();
+
+     if (Target.isAbsolute()) {
+       Type = ELF::R_X86_64_NONE;
+       Index = 0;
+     } else {
+       const MCSymbol *Symbol = &Target.getSymA()->getSymbol();
+       MCSymbolData &SD = Asm.getSymbolData(*Symbol);
+       const MCSymbolData *Base = Asm.getAtom(Layout, &SD);
+
+       if (Base) {
+         Index = getSymbolIndexInSymbolTable(Asm, &Base->getSymbol());
+         if (Base != &SD)
+           Value += Layout.getSymbolAddress(&SD) - Layout.getSymbolAddress(Base);
+         Type = ELF::R_X86_64_PC32;
+	 Addend = Value;
+	 Value = 0;
+       } else {
+         MCFragment *F = SD.getFragment();
+	 if (F) {
+           Index = SD.getFragment()->getParent()->getOrdinal() + 2;
+
+	   MCSectionData *FSD = F->getParent();
+	   // Offset of the symbol in the section
+	   Addend = Layout.getSymbolAddress(&SD) - Layout.getSectionAddress(FSD);
+	 } else {
+           FixedValue = Value;
+	   return;
+	 }
+       }
+
+     }
+
+     FixedValue = Value;
+
+     ERE64.setSymbolAndType(Index, Type);
+
+     ERE.r_offset = FixupOffset;
+     ERE.r_info = ERE64.r_info;
+     if (HasRelocationAddend)
+       ERE.r_addend = Addend;
+
+     Relocations[Fragment->getParent()].push_back(ERE);
   }
+
+  uint64_t getSymbolIndexInSymbolTable(const MCAssembler &Asm, const MCSymbol *S) {
+    std::vector<const MCSymbol*> Local;
+    std::vector<const MCSymbol*> Undefined;
+    std::vector<const MCSymbol*> External;
+
+    for (MCAssembler::const_symbol_iterator it = Asm.symbol_begin(),
+           ie = Asm.symbol_end(); it != ie; ++it) {
+      const MCSymbol &Symbol = it->getSymbol();
+
+      // Ignore non-linker visible symbols.
+      if (!Asm.isSymbolLinkerVisible(Symbol))
+        continue;
+
+      if (it->isExternal() || Symbol.isUndefined())
+        continue;
+
+      Local.push_back(&Symbol);
+    }
+    for (MCAssembler::const_symbol_iterator it = Asm.symbol_begin(),
+           ie = Asm.symbol_end(); it != ie; ++it) {
+      const MCSymbol &Symbol = it->getSymbol();
+
+      // Ignore non-linker visible symbols.
+      if (!Asm.isSymbolLinkerVisible(Symbol))
+        continue;
+
+      if (!it->isExternal() && !Symbol.isUndefined())
+        continue;
+
+      if (Symbol.isUndefined()) {
+        Undefined.push_back(&Symbol);
+      } else if (Symbol.isAbsolute()) {
+        External.push_back(&Symbol);
+      } else if (it->isCommon()) {
+        External.push_back(&Symbol);
+      } else {
+        External.push_back(&Symbol);
+      }
+    }
+
+    array_pod_sort(Local.begin(), Local.end());
+    array_pod_sort(External.begin(), External.end());
+    array_pod_sort(Undefined.begin(), Undefined.end());
+
+    for (unsigned i = 0, e = Local.size(); i != e; ++i)
+      if (Local[i] == S)
+        return i + /* empty symbol */ 1;
+    for (unsigned i = 0, e = External.size(); i != e; ++i)
+      if (External[i] == S)
+        return i + Local.size() + Asm.size() + /* empty symbol */ 1 + 
+	   /* .rela.text + .rela.eh_frame */ + 2;
+    for (unsigned i = 0, e = Undefined.size(); i != e; ++i)
+      if (Undefined[i] == S)
+        return i + Local.size() + External.size() + Asm.size() + /* empty symbol */ 1 + 
+	   /* .rela.text + .rela.eh_frame */ + 2;
+}
 
   /// ComputeSymbolTable - Compute the symbol table data
   ///
@@ -382,6 +493,49 @@ public:
 
   void CreateMetadataSections(MCAssembler &Asm, MCAsmLayout &Layout) {
     MCContext &Ctx = Asm.getContext();
+    MCDataFragment *F;
+
+    // XXX: relocations
+    const MCSection *RelaTextSection;
+    RelaTextSection = Ctx.getELFSection(".rela.text", ELF::SHT_RELA, 0,
+                                      SectionKind::getReadOnly(), false);
+
+    MCSectionData &RelaTextSD = Asm.getOrCreateSectionData(*RelaTextSection);
+
+    RelaTextSD.setAlignment(1);
+    RelaTextSD.setEntrySize(Is64Bit ? 24 : 12);
+
+    F = new MCDataFragment(&RelaTextSD);
+
+    const MCSection *RTS = Ctx.getELFSection(".text", ELF::SHT_PROGBITS, 0,
+	  				SectionKind::getReadOnly(), false);
+
+    MCSectionData &RSD = Asm.getSectionData(*RTS);
+
+    WriteRelocations(Asm, F, &RSD);
+
+    Asm.AddSectionToTheEnd(RelaTextSD, Layout);
+
+    const MCSection *RelaEHSection;
+    RelaEHSection = Ctx.getELFSection(".rela.eh_frame", ELF::SHT_RELA, 0,
+                                      SectionKind::getReadOnly(), false);
+
+    MCSectionData &RelaEHSD = Asm.getOrCreateSectionData(*RelaEHSection);
+
+    RelaEHSD.setAlignment(1);
+    RelaEHSD.setEntrySize(Is64Bit ? 24 : 12);
+
+    F = new MCDataFragment(&RelaEHSD);
+
+    const MCSection *REHS = Ctx.getELFSection(".eh_frame", ELF::SHT_PROGBITS, 0,
+	  				SectionKind::getReadOnly(), false);
+
+    MCSectionData &EHSD = Asm.getSectionData(*REHS);
+
+    WriteRelocations(Asm, F, &EHSD);
+
+    Asm.AddSectionToTheEnd(RelaEHSD, Layout);
+    // end of relocations
 
     const MCSection *SymtabSection;
     SymtabSection = Ctx.getELFSection(".symtab", ELF::SHT_SYMTAB, 0,
@@ -392,7 +546,7 @@ public:
     SymtabSD.setAlignment(Is64Bit ? 8 : 4);
     SymtabSD.setEntrySize(Is64Bit ? ELF::SYMENTRY_SIZE64 : ELF::SYMENTRY_SIZE32);
 
-    MCDataFragment *F = new MCDataFragment(&SymtabSD);
+    F = new MCDataFragment(&SymtabSD);
 
     // Symbol table
     WriteSymbolTable(F, Asm, Layout);
@@ -475,6 +629,28 @@ public:
     WriteWord(EntrySize); // sh_entsize
   }
 
+  void WriteRelocations(const MCAssembler &Asm, MCDataFragment *F, MCSectionData *SD) {
+      std::vector<ELFRelocationEntry> &Relocs = Relocations[SD];
+
+      for (unsigned i = 0, e = Relocs.size(); i != e; ++i) {
+        ELFRelocationEntry entry = Relocs[e - i - 1];
+
+        if (Is64Bit) {
+	  F->getContents() +=  StringRef((const char *)&entry.r_offset, 8);
+	  F->getContents() +=  StringRef((const char *)&entry.r_info, 8);
+
+          if (HasRelocationAddend)
+	    F->getContents() +=  StringRef((const char *)&entry.r_addend, 8);
+        } else {
+	  F->getContents() +=  StringRef((const char *)&entry.r_offset, 4);
+	  F->getContents() +=  StringRef((const char *)&entry.r_info, 4);
+
+	  if (HasRelocationAddend)
+	    F->getContents() +=  StringRef((const char *)&entry.r_addend, 4);
+        }
+      }
+  }
+
   void WriteObject(const MCAssembler &Asm, const MCAsmLayout &Layout) {
     // Compute symbol table information.
     ComputeSymbolTable(const_cast<MCAssembler&>(Asm));
@@ -514,32 +690,6 @@ public:
       Asm.WriteSectionData(it, Layout, Writer);
     }
 
-    // Relocation section
-    llvm::DenseMap<const MCSectionData*,
-                 std::vector<ELFRelocationEntry> > Relocations;
-    for (MCAssembler::const_iterator it = Asm.begin(),
-           ie = Asm.end(); it != ie; ++it) {
-      std::vector<ELFRelocationEntry> &Relocs = Relocations[it];
-
-      for (unsigned i = 0, e = Relocs.size(); i != e; ++i) {
-        ELFRelocationEntry entry = Relocs[e - i - 1];
-
-        if (Is64Bit) {
-          Write64(entry.r_offset);   // r_offset
-          Write64(entry.r_info);     // r_info
-
-          if (HasRelocationAddend)
-            Write64(entry.r_addend); // r_addend
-        } else {
-          Write32(entry.r_offset);   // r_offset
-          Write32(entry.r_info);     // r_info
-
-	  if (HasRelocationAddend)
-            Write32(entry.r_addend); // r_addend
-        }
-      }
-    }
-
     // ... and then the section header table.
     // Should we align the section header table?
     //
@@ -551,7 +701,6 @@ public:
       const MCSectionData &SD = *it;
       const MCSectionELF &Section =
         static_cast<const MCSectionELF&>(SD.getSection());
-      std::vector<ELFRelocationEntry> &Relocs = Relocations[it];;
 
       uint64_t sh_link = 0;
       uint64_t sh_info = 0;
@@ -564,10 +713,24 @@ public:
 
       case ELF::SHT_REL:
       case ELF::SHT_RELA:
-        // Make sure we have some relocs.
-        assert(Relocs.size() && "SHT_REL[A] set but couldn't find relocs");
-        sh_link = 0;
-        sh_info = 0;
+        const MCSection *SymtabSection;
+        SymtabSection = Asm.getContext().getELFSection(".symtab", ELF::SHT_SYMTAB, 0,
+                        SectionKind::getReadOnly(), false);
+        const MCSectionData *SymtabSD;
+        SymtabSD = &Asm.getSectionData(*SymtabSection);
+        // we have to count the empty section in too
+        sh_link = SymtabSD->getLayoutOrder() + 1;
+        const MCSection *InfoSection;
+        if (Section.getSectionName() == ".rela.text") {
+          InfoSection = Asm.getContext().getELFSection(".text", ELF::SHT_PROGBITS, 0,
+                                      SectionKind::getReadOnly(), false);
+        } else if (Section.getSectionName() == ".rela.eh_frame") {
+          InfoSection = Asm.getContext().getELFSection(".eh_frame", ELF::SHT_PROGBITS, 0,
+                                       SectionKind::getReadOnly(), false);
+        }
+        const MCSectionData *InfoSD;
+        InfoSD = &Asm.getSectionData(*InfoSection);
+        sh_info = InfoSD->getLayoutOrder() + 1;
         break;
 
       case ELF::SHT_SYMTAB:
