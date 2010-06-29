@@ -605,10 +605,6 @@ ELFObjectWriter::~ELFObjectWriter() {
   delete (ELFObjectWriterImpl*) Impl;
 }
 
-void ELFObjectWriter::ExecutePreLayoutBinding(MCAssembler &Asm, MCAsmLayout &Layout) {
-  ((ELFObjectWriterImpl*) Impl)->ExecutePreLayoutBinding(Asm, Layout);
-}
-
 void ELFObjectWriter::ExecutePostLayoutBinding(MCAssembler &Asm) {
   ((ELFObjectWriterImpl*) Impl)->ExecutePostLayoutBinding(Asm);
 }

@@ -753,8 +753,6 @@ void MCAssembler::Finish() {
   if (!Writer)
     report_fatal_error("unable to create object writer!");
 
-  Writer->ExecutePreLayoutBinding(*this, Layout);
-
   // Finalize the layout, including fragment lowering.
   FinishLayout(Layout);
 

@@ -63,8 +63,6 @@ public:
   /// complete.
   virtual void ExecutePostLayoutBinding(MCAssembler &Asm) = 0;
 
-  virtual void ExecutePreLayoutBinding(MCAssembler &Asm, MCAsmLayout &Layout) {};
-
   /// Record a relocation entry.
   ///
   /// This routine is called by the assembler after layout and relaxation, and
