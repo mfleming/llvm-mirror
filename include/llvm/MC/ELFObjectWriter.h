@@ -31,7 +31,6 @@ public:
   virtual ~ELFObjectWriter();
 
   virtual void ExecutePostLayoutBinding(MCAssembler &Asm);
-  virtual void ExecutePreLayoutBinding(MCAssembler &Asm, MCAsmLayout &Layout);
 
   virtual void RecordRelocation(const MCAssembler &Asm,
                                 const MCAsmLayout &Layout,
