@@ -115,7 +115,6 @@ bool ELFAsmParser::ParseDirectiveLocal() {
     // Handle the identifier as the key symbol.
     MCSymbol *Sym = CreateSymbol(Name);
 
-    Sym->setSection(*Out.getCurrentSection());
     Out.EmitSymbolAttribute(Sym, MCSA_Local);
 
     // Read all symbol names.
