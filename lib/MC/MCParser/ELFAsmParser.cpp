@@ -221,6 +221,7 @@ bool ELFAsmParser::ParseDirectiveSize() {
     return true;
 
   Out.EmitELFSize(Sym, Value);
+  return false;
 }
 
 const MCSection *ELFAsmParser::getInitialTextSection() {
