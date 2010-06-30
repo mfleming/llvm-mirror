@@ -180,21 +180,13 @@ bool ELFAsmParser::ParseDirectiveComm(bool IsLocal) {
     return Error(AlignmentLoc, "invalid '.comm' or '.lcomm' directive "
                  "alignment, can't be less than zero");
 
-  if (!Sym->isUndefined())
-    return Error(IDLoc, "invalid symbol redefinition");
-
   // '.lcomm' is equivalent to '.zerofill'.
   // Create the Symbol as a common or local common with Size and Alignment
-  if (IsLocal) {
-    Out.EmitZerofill(Ctx.getELFSection(".bss", MCSectionELF::SHT_NOBITS,
-				       MCSectionELF::SHF_WRITE |
-				       MCSectionELF::SHF_ALLOC,
-				       SectionKind::getBSS()),
-                     Sym, Size, 1 << Alignment);
-    return false;
-  }
+  if (IsLocal)
+    Out.EmitSymbolAttribute(Sym, MCSA_Local);
 
-  Out.EmitCommonSymbol(Sym, Size, 1 << Alignment);
+  Out.EmitSymbolAttribute(Sym, MCSA_ELF_TypeObject);
+  Out.EmitCommonSymbol(Sym, Size, Alignment);
   return false;
 }
 
