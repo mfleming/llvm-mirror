@@ -19,6 +19,7 @@
 #include "llvm/MC/MCExpr.h"
 #include "llvm/MC/MCInst.h"
 #include "llvm/MC/MCSection.h"
+#include "llvm/MC/MCSectionELF.h"
 #include "llvm/MC/MCSymbol.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/ELF.h"
@@ -304,11 +305,23 @@ void MCELFStreamer::EmitSymbolDesc(MCSymbol *Symbol, unsigned DescValue) {
 
 void MCELFStreamer::EmitCommonSymbol(MCSymbol *Symbol, uint64_t Size,
                                        unsigned ByteAlignment) {
-  // FIXME: Darwin 'as' does appear to allow redef of a .comm by itself.
-  assert(Symbol->isUndefined() && "Cannot define a symbol twice!");
+  MCSymbolData &SD = Assembler.getSymbolData(*Symbol);
 
-  MCSymbolData &SD = Assembler.getOrCreateSymbolData(*Symbol);
-  SD.setExternal(true);
+  if ((SD.getFlags() & (0xff << ELF::STB_SHIFT)) == ELF::STB_LOCAL << ELF::STB_SHIFT) {
+    const MCSection *Section = Assembler.getContext().getELFSection(".bss",
+                                                                    MCSectionELF::SHT_NOBITS,
+                                                                    MCSectionELF::SHF_WRITE |
+                                                                    MCSectionELF::SHF_ALLOC,
+                                                                    SectionKind::getBSS());
+
+    MCSectionData &SectData = Assembler.getOrCreateSectionData(*Section);
+    MCFragment *F = new MCFillFragment(0, 0, Size, &SectData);
+    SD.setFragment(F);
+    Symbol->setSection(*Section);
+  } else {
+    SD.setExternal(true);
+  }
+
   SD.setCommon(Size, ByteAlignment);
 }
 
