@@ -240,7 +240,7 @@ public:
       F->getContents() += '\x00';
 
     // Write the symbol table entries.
-    LastLocalSymbolIndex = LocalSymbolData.size();
+    LastLocalSymbolIndex = LocalSymbolData.size() + 1;
     for (unsigned i = 0, e = LocalSymbolData.size(); i != e; ++i) {
       ELFSymbolData &MSD = LocalSymbolData[i];
       WriteSymbol(F, MSD, Layout);
@@ -257,14 +257,17 @@ public:
       assert((Data.getFlags() & (ELF::STB_GLOBAL << ELF::STB_SHIFT)) &&
 	     "External symbol requires STB_GLOBAL flag");
       WriteSymbol(F, MSD, Layout);
+      if (Data.getFlags() & (ELF::STB_LOCAL << ELF::STB_SHIFT))
+        LastLocalSymbolIndex++;
     }
-    LastLocalSymbolIndex += ExternalSymbolData.size();
 
     for (unsigned i = 0, e = UndefinedSymbolData.size(); i != e; ++i) {
       ELFSymbolData &MSD = UndefinedSymbolData[i];
       MCSymbolData &Data = *MSD.SymbolData;
       Data.setFlags(Data.getFlags() | (ELF::STB_GLOBAL << ELF::STB_SHIFT));
       WriteSymbol(F, MSD, Layout);
+      if (Data.getFlags() & (ELF::STB_LOCAL << ELF::STB_SHIFT))
+        LastLocalSymbolIndex++;
     }
   }
 
