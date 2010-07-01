@@ -171,7 +171,7 @@ public:
   }
 
   void WriteSymbolEntry(MCDataFragment *F, uint64_t name, uint8_t info,
-                        uint64_t value, uint32_t size,
+                        uint64_t value, uint64_t size,
                         uint8_t other, uint16_t shndx) {
     if (Is64Bit) {
       F->getContents() += StringRef((const char *)&name, 4);  // st_name
@@ -199,7 +199,7 @@ public:
     uint8_t Info = (Data.getFlags() & 0xff);
     uint8_t Other = ((Data.getFlags() & 0xf00) >> ELF::STV_SHIFT);
     uint64_t Value = 0;
-    uint32_t Size = 0;
+    uint64_t Size = 0;
 
     // Compute the symbol address.
     if (Data.isCommon()) {
