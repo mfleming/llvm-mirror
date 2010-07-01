@@ -491,51 +491,51 @@ public:
       UndefinedSymbolData[i].SymbolData->setIndex(Index++);
   }
 
-  void CreateMetadataSections(MCAssembler &Asm, MCAsmLayout &Layout) {
+  void WriteRelocation(MCAssembler &Asm, MCAsmLayout &Layout,
+                       const MCSectionData &SD) {
+
+    if (!Relocations[&SD].empty()) {
+      MCContext &Ctx = Asm.getContext();
+      const MCSection *RelaSection;
+      const MCSectionELF &Section =
+        static_cast<const MCSectionELF&>(SD.getSection());
+
+      const StringRef SectionName = Section.getSectionName();
+      std::string RelaSectionName = ".rela";
+
+      RelaSectionName += SectionName;
+
+      RelaSection = Ctx.getELFSection(RelaSectionName, ELF::SHT_RELA, 0,
+                                      SectionKind::getReadOnly(), false);
+
+      MCSectionData &RelaSD = Asm.getOrCreateSectionData(*RelaSection);
+
+      RelaSD.setAlignment(1);
+      RelaSD.setEntrySize(Is64Bit ? 24 : 12);
+
+      MCDataFragment *F = new MCDataFragment(&RelaSD);
+
+      WriteRelocationsFragment(Asm, F, &SD);
+
+      Asm.AddSectionToTheEnd(RelaSD, Layout);
+    }
+    
+  }
+
+  void WriteRelocations(MCAssembler &Asm, MCAsmLayout &Layout) {
+    for (MCAssembler::const_iterator it = Asm.begin(),
+           ie = Asm.end(); it != ie; ++it) {
+      const MCSectionData &SD = *it;
+
+      WriteRelocation(Asm, Layout, SD);
+    }
+  }
+
+void CreateMetadataSections(MCAssembler &Asm, MCAsmLayout &Layout) {
     MCContext &Ctx = Asm.getContext();
     MCDataFragment *F;
 
-    // XXX: relocations
-    const MCSection *RelaTextSection;
-    RelaTextSection = Ctx.getELFSection(".rela.text", ELF::SHT_RELA, 0,
-                                      SectionKind::getReadOnly(), false);
-
-    MCSectionData &RelaTextSD = Asm.getOrCreateSectionData(*RelaTextSection);
-
-    RelaTextSD.setAlignment(1);
-    RelaTextSD.setEntrySize(Is64Bit ? 24 : 12);
-
-    F = new MCDataFragment(&RelaTextSD);
-
-    const MCSection *RTS = Ctx.getELFSection(".text", ELF::SHT_PROGBITS, 0,
-	  				SectionKind::getReadOnly(), false);
-
-    MCSectionData &RSD = Asm.getSectionData(*RTS);
-
-    WriteRelocations(Asm, F, &RSD);
-
-    Asm.AddSectionToTheEnd(RelaTextSD, Layout);
-
-    const MCSection *RelaEHSection;
-    RelaEHSection = Ctx.getELFSection(".rela.eh_frame", ELF::SHT_RELA, 0,
-                                      SectionKind::getReadOnly(), false);
-
-    MCSectionData &RelaEHSD = Asm.getOrCreateSectionData(*RelaEHSection);
-
-    RelaEHSD.setAlignment(1);
-    RelaEHSD.setEntrySize(Is64Bit ? 24 : 12);
-
-    F = new MCDataFragment(&RelaEHSD);
-
-    const MCSection *REHS = Ctx.getELFSection(".eh_frame", ELF::SHT_PROGBITS, 0,
-	  				SectionKind::getReadOnly(), false);
-
-    MCSectionData &EHSD = Asm.getSectionData(*REHS);
-
-    WriteRelocations(Asm, F, &EHSD);
-
-    Asm.AddSectionToTheEnd(RelaEHSD, Layout);
-    // end of relocations
+    WriteRelocations(Asm, Layout);
 
     const MCSection *SymtabSection;
     SymtabSection = Ctx.getELFSection(".symtab", ELF::SHT_SYMTAB, 0,
@@ -629,7 +629,8 @@ public:
     WriteWord(EntrySize); // sh_entsize
   }
 
-  void WriteRelocations(const MCAssembler &Asm, MCDataFragment *F, MCSectionData *SD) {
+  void WriteRelocationsFragment(const MCAssembler &Asm, MCDataFragment *F,
+    const MCSectionData *SD) {
       std::vector<ELFRelocationEntry> &Relocs = Relocations[SD];
 
       for (unsigned i = 0, e = Relocs.size(); i != e; ++i) {
@@ -714,21 +715,21 @@ public:
       case ELF::SHT_REL:
       case ELF::SHT_RELA:
         const MCSection *SymtabSection;
+        const MCSection *InfoSection;
+        const StringRef *SectionName;
+        const MCSectionData *SymtabSD;
+        const MCSectionData *InfoSD;
+
         SymtabSection = Asm.getContext().getELFSection(".symtab", ELF::SHT_SYMTAB, 0,
                         SectionKind::getReadOnly(), false);
-        const MCSectionData *SymtabSD;
         SymtabSD = &Asm.getSectionData(*SymtabSection);
         // we have to count the empty section in too
         sh_link = SymtabSD->getLayoutOrder() + 1;
-        const MCSection *InfoSection;
-        if (Section.getSectionName() == ".rela.text") {
-          InfoSection = Asm.getContext().getELFSection(".text", ELF::SHT_PROGBITS, 0,
-                                      SectionKind::getReadOnly(), false);
-        } else if (Section.getSectionName() == ".rela.eh_frame") {
-          InfoSection = Asm.getContext().getELFSection(".eh_frame", ELF::SHT_PROGBITS, 0,
-                                       SectionKind::getReadOnly(), false);
-        }
-        const MCSectionData *InfoSD;
+
+        SectionName = &Section.getSectionName();
+        SectionName = &SectionName->slice(5, SectionName->size());
+        InfoSection = Asm.getContext().getELFSection(*SectionName,
+          ELF::SHT_PROGBITS, 0, SectionKind::getReadOnly(), false);
         InfoSD = &Asm.getSectionData(*InfoSection);
         sh_info = InfoSD->getLayoutOrder() + 1;
         break;
