@@ -305,7 +305,10 @@ public:
        } else {
          MCFragment *F = SD.getFragment();
 	 if (F) {
-           Index = SD.getFragment()->getParent()->getOrdinal() + 2;
+           // Index of the section in .symtab against this symbol
+           // is being relocated + 2 (empty section + abs. symbols).
+           Index = SD.getFragment()->getParent()->getOrdinal() +
+             getNumOfLocalSymbols(Asm) + 1;
 
 	   MCSectionData *FSD = F->getParent();
 	   // Offset of the symbol in the section
@@ -330,6 +333,29 @@ public:
      Relocations[Fragment->getParent()].push_back(ERE);
   }
 
+  // XXX-PERF: this should be cached
+  uint64_t getNumOfLocalSymbols(const MCAssembler &Asm) {
+    std::vector<const MCSymbol*> Local;
+
+    uint64_t Index = 0;
+    for (MCAssembler::const_symbol_iterator it = Asm.symbol_begin(),
+           ie = Asm.symbol_end(); it != ie; ++it) {
+      const MCSymbol &Symbol = it->getSymbol();
+
+      // Ignore non-linker visible symbols.
+      if (!Asm.isSymbolLinkerVisible(Symbol))
+        continue;
+
+      if (it->isExternal() || Symbol.isUndefined())
+        continue;
+
+      Index++;
+    }
+
+    return Index;
+  }
+
+  // XXX-PERF: this should be cached
   uint64_t getSymbolIndexInSymbolTable(const MCAssembler &Asm, const MCSymbol *S) {
     std::vector<const MCSymbol*> Local;
     std::vector<const MCSymbol*> Undefined;
